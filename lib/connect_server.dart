@@ -144,8 +144,8 @@ class _PhotoframeControllerState extends State<PhotoframeController> {
         if (image != null) {
           setState(() {
             this.image = image;
-            Future.delayed(interval, () {
-              nextScheduler();
+            Future.delayed(interval, () async {
+              await nextScheduler();
             });
           });
           return;
