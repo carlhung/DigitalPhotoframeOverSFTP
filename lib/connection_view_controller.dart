@@ -103,8 +103,56 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
         _duration.text = duration;
         _saveChecked = saveChecked;
       });
+
+      // Wait for the next frame to ensure the context is ready
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _submit(context);
+        }
+      });
     } else {
       await _clearSavedInputs();
+    }
+  }
+
+  Future<void> _submit(BuildContext context) async {
+    if (_formKey.currentState!.validate()) {
+      final port = int.tryParse(_portController.text);
+      final socket = await SSHSocket.connect(_hostController.text, port!);
+      final client = SSHClient(
+        socket,
+        username: _usernameController.text,
+        onPasswordRequest: () => _passwordController.text,
+      );
+      final sftp = await client.sftp();
+      final loadTargetPathCommand =
+          'cd ${_rootPath.text} && find "\$(pwd)" -type f';
+      final result = await client.run(loadTargetPathCommand, stderr: false);
+      final allPaths = utf8
+          .decode(result)
+          .split("\n")
+          .where((path) => path.trim().isNotEmpty)
+          .toList();
+      allPaths.shuffle();
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PhotoframeController(
+              navigatorKey: widget.navigatorKey,
+              client: client,
+              sftp: sftp,
+              imagePaths: allPaths,
+              duration: Duration(seconds: int.parse(_duration.text)),
+            ),
+          ),
+        );
+        if (_saveChecked) {
+          await _saveInputs();
+        } else {
+          await _clearSavedInputs();
+        }
+      }
     }
   }
 
@@ -277,52 +325,7 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
                 // Connect Button
                 ElevatedButton(
                   onPressed: () async {
-                    if (_formKey.currentState!.validate()) {
-                      final port = int.tryParse(_portController.text);
-                      final socket = await SSHSocket.connect(
-                        _hostController.text,
-                        port!,
-                      );
-                      final client = SSHClient(
-                        socket,
-                        username: _usernameController.text,
-                        onPasswordRequest: () => _passwordController.text,
-                      );
-                      final sftp = await client.sftp();
-                      final loadTargetPathCommand =
-                          'cd ${_rootPath.text} && find "\$(pwd)" -type f';
-                      final result = await client.run(
-                        loadTargetPathCommand,
-                        stderr: false,
-                      );
-                      final allPaths = utf8
-                          .decode(result)
-                          .split("\n")
-                          .where((path) => path.trim().isNotEmpty)
-                          .toList();
-                      allPaths.shuffle();
-                      if (context.mounted) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => PhotoframeController(
-                              navigatorKey: widget.navigatorKey,
-                              client: client,
-                              sftp: sftp,
-                              imagePaths: allPaths,
-                              duration: Duration(
-                                seconds: int.parse(_duration.text),
-                              ),
-                            ),
-                          ),
-                        );
-                        if (_saveChecked) {
-                          await _saveInputs();
-                        } else {
-                          await _clearSavedInputs();
-                        }
-                      }
-                    }
+                    await _submit(context);
                   },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
