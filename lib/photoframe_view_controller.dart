@@ -6,23 +6,14 @@ import 'package:keep_screen_on/keep_screen_on.dart';
 import 'package:path/path.dart';
 import 'dart:io' show Platform;
 
+import 'package:photoframe/helpers.dart';
+
 class PhotoframeController extends StatefulWidget {
   final GlobalKey<NavigatorState> navigatorKey;
   final SftpClient sftp;
   final SSHClient client;
   final List<String> imagePaths;
   final Duration duration;
-  final List<String> acceptedFormats = [
-    "jpg",
-    "png",
-    "jpeg",
-    "gif",
-    "webp",
-    "bmp",
-    "wbmp",
-    "heic",
-    "heif",
-  ].map((str) => '.${str.toLowerCase()}').toList();
 
   PhotoframeController({
     super.key,
@@ -92,27 +83,18 @@ class _PhotoframeControllerState extends State<PhotoframeController> {
     widget.client.close();
   }
 
-  void showErrorOnSnackBar(BuildContext context, Object error) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(duration: widget.duration, content: Text('error: $error')),
-    );
-  }
-
   Future<void> nextScheduler() async {
     while (true) {
       final path = widget.imagePaths[random.nextInt(widget.imagePaths.length)];
-      final exten = extension(path).toLowerCase();
-      if (widget.acceptedFormats.contains(exten)) {
-        final image = await loadImage(path);
-        if (image != null) {
-          setState(() {
-            this.image = image;
-            Future.delayed(widget.duration, () async {
-              await nextScheduler();
-            });
+      final image = await loadImage(path);
+      if (image != null) {
+        setState(() {
+          this.image = image;
+          Future.delayed(widget.duration, () async {
+            await nextScheduler();
           });
-          return;
-        }
+        });
+        return;
       }
     }
   }

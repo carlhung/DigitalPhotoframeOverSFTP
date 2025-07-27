@@ -1,7 +1,8 @@
 import 'dart:convert';
-
+import 'package:path/path.dart' as p;
 import 'package:flutter/material.dart';
 import 'package:dartssh2/dartssh2.dart';
+import 'package:photoframe/helpers.dart';
 import 'package:photoframe/photoframe_view_controller.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -36,6 +37,18 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
   bool _saveChecked;
 
   final _secureStorage = const FlutterSecureStorage();
+
+  final List<String> acceptedFormats = [
+    "jpg",
+    "png",
+    "jpeg",
+    "gif",
+    "webp",
+    "bmp",
+    "wbmp",
+    "heic",
+    "heif",
+  ].map((str) => '.${str.toLowerCase()}').toList();
 
   _ConnectionFormWidgetState() : _obscurePassword = true, _saveChecked = false {
     _loadSavedInputs();
@@ -116,7 +129,8 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
   }
 
   Future<void> _submit(BuildContext context) async {
-    if (_formKey.currentState!.validate()) {
+    if (!_formKey.currentState!.validate()) return;
+    try {
       final port = int.tryParse(_portController.text);
       final socket = await SSHSocket.connect(_hostController.text, port!);
       final client = SSHClient(
@@ -128,11 +142,16 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
       final loadTargetPathCommand =
           'cd ${_rootPath.text} && find "\$(pwd)" -type f';
       final result = await client.run(loadTargetPathCommand, stderr: false);
-      final allPaths = utf8
-          .decode(result)
-          .split("\n")
-          .where((path) => path.trim().isNotEmpty)
-          .toList();
+      final allPaths = utf8.decode(result).split("\n").where((path) {
+        final trimmedPath = path.trim();
+        if (trimmedPath.isEmpty) return false;
+        final fileExtenion = p.extension(trimmedPath).toLowerCase();
+        if (!acceptedFormats.contains(fileExtenion)) return false;
+        return true;
+      }).toList();
+      if (allPaths.isEmpty) {
+        throw Exception("No valid image files found in the specified path.");
+      }
       allPaths.shuffle();
       if (context.mounted) {
         Navigator.push(
@@ -153,186 +172,202 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
           await _clearSavedInputs();
         }
       }
+    } catch (e) {
+      final context = widget.navigatorKey.currentContext;
+      if (context != null && context.mounted) {
+        showErrorOnSnackBar(context, e);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Card(
-        margin: const EdgeInsets.all(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'Server Connection',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-
-                // Host Field
-                TextFormField(
-                  controller: _hostController,
-                  decoration: const InputDecoration(
-                    labelText: 'Host',
-                    hintText: 'example.com',
-                    prefixIcon: Icon(Icons.public),
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a host';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Port Field
-                TextFormField(
-                  controller: _portController,
-                  decoration: const InputDecoration(
-                    labelText: 'Port',
-                    hintText: '22',
-                    prefixIcon: Icon(Icons.settings_ethernet),
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a port';
-                    }
-                    final port = int.tryParse(value);
-                    if (port == null || port < 1 || port > 65535) {
-                      return 'Please enter a valid port (1-65535)';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Username Field
-                TextFormField(
-                  controller: _usernameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Username',
-                    hintText: 'Enter username',
-                    prefixIcon: Icon(Icons.person),
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a username';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Password Field
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    hintText: 'Enter password',
-                    prefixIcon: const Icon(Icons.lock),
-                    border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility
-                            : Icons.visibility_off,
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: SingleChildScrollView(
+          child: Card(
+            margin: const EdgeInsets.all(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Server Connection',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Host Field
+                    TextFormField(
+                      controller: _hostController,
+                      decoration: const InputDecoration(
+                        labelText: 'Host',
+                        hintText: 'example.com',
+                        prefixIcon: Icon(Icons.public),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a host';
+                        }
+                        return null;
                       },
                     ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a password';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                // Image Root Path
-                TextFormField(
-                  controller: _rootPath,
-                  decoration: const InputDecoration(
-                    labelText: 'Image Root Path',
-                    hintText: '~/',
-                    prefixIcon: Icon(Icons.person),
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a path';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Duration Field
-                TextFormField(
-                  controller: _duration,
-                  decoration: const InputDecoration(
-                    labelText: 'Duration (seconds)',
-                    hintText: 'a number of seconds',
-                    prefixIcon: Icon(Icons.settings_ethernet),
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a number';
-                    }
-                    final num = int.tryParse(value);
-                    if (num == null) {
-                      return 'Please enter a valid number';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 24),
-
-                // Save Checkbox and Button
-                Row(
-                  children: [
-                    const Text('Save: '),
-                    Checkbox(
-                      value: _saveChecked,
-                      onChanged: (val) {
-                        setState(() {
-                          _saveChecked = val ?? false;
-                        });
+                    // Port Field
+                    TextFormField(
+                      controller: _portController,
+                      decoration: const InputDecoration(
+                        labelText: 'Port',
+                        hintText: '22',
+                        prefixIcon: Icon(Icons.settings_ethernet),
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a port';
+                        }
+                        final port = int.tryParse(value);
+                        if (port == null || port < 1 || port > 65535) {
+                          return 'Please enter a valid port (1-65535)';
+                        }
+                        return null;
                       },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Username Field
+                    TextFormField(
+                      controller: _usernameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Username',
+                        hintText: 'Enter username',
+                        prefixIcon: Icon(Icons.person),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a username';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Password Field
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        hintText: 'Enter password',
+                        prefixIcon: const Icon(Icons.lock),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a password';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Image Root Path
+                    TextFormField(
+                      controller: _rootPath,
+                      decoration: const InputDecoration(
+                        labelText: 'Image Root Path',
+                        hintText: '~/',
+                        prefixIcon: Icon(Icons.person),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a path';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Duration Field
+                    TextFormField(
+                      controller: _duration,
+                      decoration: const InputDecoration(
+                        labelText: 'Duration (seconds)',
+                        hintText: 'a number of seconds',
+                        prefixIcon: Icon(Icons.settings_ethernet),
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a number';
+                        }
+                        final num = int.tryParse(value);
+                        if (num == null) {
+                          return 'Please enter a valid number';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Save Checkbox and Button
+                    Row(
+                      children: [
+                        const Text('Save: '),
+                        Checkbox(
+                          value: _saveChecked,
+                          onChanged: (val) {
+                            setState(() {
+                              _saveChecked = val ?? false;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Connect Button
+                    ElevatedButton(
+                      onPressed: () async {
+                        await _submit(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: const Text(
+                        'Connect',
+                        style: TextStyle(fontSize: 16),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-
-                // Connect Button
-                ElevatedButton(
-                  onPressed: () async {
-                    await _submit(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('Connect', style: TextStyle(fontSize: 16)),
-                ),
-              ],
+              ),
             ),
           ),
         ),
