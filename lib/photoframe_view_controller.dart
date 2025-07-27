@@ -14,7 +14,7 @@ class PhotoframeController extends StatefulWidget {
   final List<String> imagePaths;
   final Duration duration;
 
-  PhotoframeController({
+  const PhotoframeController({
     super.key,
     required this.navigatorKey,
     required this.sftp,
