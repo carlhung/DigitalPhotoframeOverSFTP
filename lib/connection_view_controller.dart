@@ -24,6 +24,14 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
   final _rootPath = TextEditingController();
   final _duration = TextEditingController();
 
+  final _hostKey = "host";
+  final _portKey = "port";
+  final _usernameKey = "username";
+  final _passwordKey = "password";
+  final _rootPathKey = "rootPath";
+  final _durationKey = "duration";
+  final _saveCheckedKey = "saveChecked";
+
   bool _obscurePassword;
   bool _saveChecked;
 
@@ -44,37 +52,60 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
   }
 
   Future<void> _saveInputs() async {
-    final context = widget.navigatorKey.currentContext;
-    if (context != null && _formKey.currentState!.validate()) {
+    if (_formKey.currentState!.validate()) {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('host', _hostController.text);
-      await prefs.setString('port', _portController.text);
-      await prefs.setString('username', _usernameController.text);
-      await prefs.setString('rootPath', _rootPath.text);
-      await prefs.setString('duration', _duration.text);
+      await prefs.setString(_hostKey, _hostController.text);
+      await prefs.setString(_portKey, _portController.text);
+      await prefs.setString(_usernameKey, _usernameController.text);
+      await prefs.setString(_rootPathKey, _rootPath.text);
+      await prefs.setString(_durationKey, _duration.text);
+      await prefs.setBool(_saveCheckedKey, _saveChecked);
       await _secureStorage.write(
-        key: 'password',
+        key: _passwordKey,
         value: _passwordController.text,
       );
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Inputs saved!')));
-      }
     }
+  }
+
+  Future<void> _clearSavedInputs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_hostKey);
+    await prefs.remove(_portKey);
+    await prefs.remove(_usernameKey);
+    await prefs.remove(_rootPathKey);
+    await prefs.remove(_durationKey);
+    await prefs.remove(_saveCheckedKey);
+    await _secureStorage.delete(key: _passwordKey);
   }
 
   Future<void> _loadSavedInputs() async {
     final prefs = await SharedPreferences.getInstance();
-    final password = await _secureStorage.read(key: 'password');
-    setState(() {
-      _hostController.text = prefs.getString('host') ?? '';
-      _portController.text = prefs.getString('port') ?? '';
-      _usernameController.text = prefs.getString('username') ?? '';
-      _passwordController.text = password ?? '';
-      _rootPath.text = prefs.getString('rootPath') ?? '';
-      _duration.text = prefs.getString('duration') ?? '';
-    });
+    final password = await _secureStorage.read(key: _passwordKey) ?? '';
+    final host = prefs.getString(_hostKey) ?? '';
+    final port = prefs.getString(_portKey) ?? '';
+    final username = prefs.getString(_usernameKey) ?? '';
+    final rootPath = prefs.getString(_rootPathKey) ?? '';
+    final duration = prefs.getString(_durationKey) ?? '';
+    final saveChecked = prefs.getBool(_saveCheckedKey) ?? false;
+
+    if (host.isNotEmpty &&
+        password.isNotEmpty &&
+        username.isNotEmpty &&
+        port.isNotEmpty &&
+        rootPath.isNotEmpty &&
+        duration.isNotEmpty) {
+      setState(() {
+        _hostController.text = host;
+        _portController.text = port;
+        _usernameController.text = username;
+        _passwordController.text = password;
+        _rootPath.text = rootPath;
+        _duration.text = duration;
+        _saveChecked = saveChecked;
+      });
+    } else {
+      await _clearSavedInputs();
+    }
   }
 
   @override
@@ -230,22 +261,14 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
                 // Save Checkbox and Button
                 Row(
                   children: [
+                    const Text('Save: '),
                     Checkbox(
                       value: _saveChecked,
                       onChanged: (val) {
                         setState(() {
                           _saveChecked = val ?? false;
-                          if (_saveChecked) {
-                            _saveInputs();
-                          }
                         });
                       },
-                    ),
-                    const Text('Save'),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: _saveInputs,
-                      child: const Text('Save Now'),
                     ),
                   ],
                 ),
@@ -293,6 +316,11 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
                             ),
                           ),
                         );
+                        if (_saveChecked) {
+                          await _saveInputs();
+                        } else {
+                          await _clearSavedInputs();
+                        }
                       }
                     }
                   },
