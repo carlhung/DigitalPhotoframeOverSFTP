@@ -35,6 +35,7 @@ class _PhotoframeControllerState extends State<PhotoframeController> {
   Cache<Uint8List> cache = Cache<Uint8List>(maxSize: 10);
   final random = Random();
   Timer? _timer;
+  bool isPlaying = true;
 
   void keepSreen(bool value) {
     if (Platform.isAndroid || Platform.isIOS) {
@@ -103,9 +104,13 @@ class _PhotoframeControllerState extends State<PhotoframeController> {
           // Double-tap on the right side
           _onDoubleTapRight();
         }
+        isPlaying = false;
       },
       onPanEnd: (details) {
-        nextScheduler();
+        if (!isPlaying) {
+          isPlaying = true;
+          nextScheduler();
+        }
       },
       child: Container(
         alignment: Alignment.center,
@@ -142,7 +147,6 @@ class _PhotoframeControllerState extends State<PhotoframeController> {
   }
 
   Future<void> nextScheduler() async {
-    if (_timer != null) return;
     while (true) {
       final path = widget.imagePaths[random.nextInt(widget.imagePaths.length)];
       final image = await loadImage(path);
@@ -150,6 +154,7 @@ class _PhotoframeControllerState extends State<PhotoframeController> {
         setState(() {
           this.image = image;
           _timer = Timer(widget.duration, () async {
+            _cleanTimer();
             await nextScheduler();
           });
         });
