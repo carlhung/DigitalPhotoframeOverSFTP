@@ -142,6 +142,7 @@ class _PhotoframeControllerState extends State<PhotoframeController> {
   }
 
   Future<void> nextScheduler() async {
+    if (_timer != null) return;
     while (true) {
       final path = widget.imagePaths[random.nextInt(widget.imagePaths.length)];
       final image = await loadImage(path);
