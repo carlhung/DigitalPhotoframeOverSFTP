@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
@@ -13,6 +14,7 @@ class PhotoframeController extends StatefulWidget {
   final SSHClient client;
   final List<String> imagePaths;
   final Duration duration;
+  final int imageCacheSize;
 
   const PhotoframeController({
     super.key,
@@ -21,6 +23,7 @@ class PhotoframeController extends StatefulWidget {
     required this.client,
     required this.imagePaths,
     required this.duration,
+    required this.imageCacheSize,
   });
 
   @override
@@ -29,7 +32,9 @@ class PhotoframeController extends StatefulWidget {
 
 class _PhotoframeControllerState extends State<PhotoframeController> {
   Image? image;
+  Cache<Uint8List> cache = Cache<Uint8List>(maxSize: 10);
   final random = Random();
+  Timer? _timer;
 
   void keepSreen(bool value) {
     if (Platform.isAndroid || Platform.isIOS) {
@@ -41,6 +46,13 @@ class _PhotoframeControllerState extends State<PhotoframeController> {
     }
   }
 
+  void _cleanTimer() {
+    if (_timer != null) {
+      _timer!.cancel();
+      _timer = null;
+    }
+  }
+
   _PhotoframeControllerState() {
     keepSreen(true);
   }
@@ -48,6 +60,7 @@ class _PhotoframeControllerState extends State<PhotoframeController> {
   @override
   void initState() {
     super.initState();
+    cache = Cache<Uint8List>(maxSize: widget.imageCacheSize);
     nextScheduler();
   }
 
@@ -55,7 +68,7 @@ class _PhotoframeControllerState extends State<PhotoframeController> {
     try {
       final file = await widget.sftp.open(path);
       final content = await file.readBytes();
-
+      cache.add(content);
       return Image.memory(content);
     } catch (e) {
       final context = widget.navigatorKey.currentContext;
@@ -68,17 +81,63 @@ class _PhotoframeControllerState extends State<PhotoframeController> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+
       // appBar: AppBar(
       //   backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       //   title: const Text("photoframe"),
       // ),
-      body: Center(child: image ?? const CircularProgressIndicator()),
+      body: _body(),
     );
   }
 
-  void disconnect() {
-    widget.sftp.close(); // optional
+  Widget _body() {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onDoubleTapDown: (details) {
+        final width = MediaQuery.of(context).size.width;
+        final dx = details.localPosition.dx;
+        if (dx < width / 2) {
+          // Double-tap on the left side
+          _onDoubleTapLeft();
+        } else {
+          // Double-tap on the right side
+          _onDoubleTapRight();
+        }
+      },
+      onPanEnd: (details) {
+        nextScheduler();
+      },
+      child: Container(
+        alignment: Alignment.center,
+        width: double.infinity,
+        height: double.infinity,
+        child: image ?? const CircularProgressIndicator(),
+      ),
+    );
+  }
 
+  void _onDoubleTapLeft() {
+    final previousItem = cache.getPreviousItem();
+    if (previousItem != null) {
+      _cleanTimer();
+      setState(() {
+        image = Image.memory(previousItem);
+      });
+    }
+  }
+
+  void _onDoubleTapRight() {
+    final nextItem = cache.getNextItem();
+    if (nextItem != null) {
+      _cleanTimer();
+      setState(() {
+        image = Image.memory(nextItem);
+      });
+    }
+  }
+
+  void disconnect() {
+    widget.sftp.close();
     widget.client.close();
   }
 
@@ -89,7 +148,7 @@ class _PhotoframeControllerState extends State<PhotoframeController> {
       if (image != null) {
         setState(() {
           this.image = image;
-          Future.delayed(widget.duration, () async {
+          _timer = Timer(widget.duration, () async {
             await nextScheduler();
           });
         });
@@ -102,6 +161,66 @@ class _PhotoframeControllerState extends State<PhotoframeController> {
   void dispose() {
     keepSreen(false);
     disconnect();
+    _cleanTimer();
     super.dispose();
+  }
+}
+
+final class Cache<T> {
+  final int maxSize;
+  final List<T> _cache = [];
+  int currentIndex = 0;
+  int get length => _cache.length;
+  bool _isStartedGettingItems = false;
+
+  Cache({this.maxSize = 10});
+
+  void add(T item) {
+    _isStartedGettingItems = false;
+    _cache.add(item);
+    if (_cache.length > maxSize) {
+      _cache.removeAt(0);
+    }
+  }
+
+  T? getPreviousItem() {
+    if (_cache.isEmpty) return null;
+    if (!_isStartedGettingItems) {
+      _isStartedGettingItems = true;
+      currentIndex = _cache.length - 1 - 1;
+      if (currentIndex < 0) {
+        currentIndex = 0;
+        return null;
+      }
+      return _cache[currentIndex];
+    } else {
+      currentIndex--;
+      if (currentIndex < 0) {
+        currentIndex = 0;
+        return null;
+      }
+      return _cache[currentIndex];
+    }
+  }
+
+  T? getNextItem() {
+    if (_cache.isEmpty) return null;
+    if (!_isStartedGettingItems) {
+      _isStartedGettingItems = true;
+      currentIndex = _cache.length - 1;
+      return null;
+    } else {
+      currentIndex++;
+      if (currentIndex >= _cache.length) {
+        currentIndex = _cache.length - 1;
+        return null;
+      }
+      return _cache[currentIndex];
+    }
+  }
+
+  void reset() {
+    _isStartedGettingItems = false;
+    currentIndex = 0;
   }
 }

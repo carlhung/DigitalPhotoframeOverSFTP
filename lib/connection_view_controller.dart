@@ -24,6 +24,7 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
   final _passwordController = TextEditingController();
   final _rootPath = TextEditingController();
   final _duration = TextEditingController();
+  final _imageCacheSizeController = TextEditingController();
 
   final _hostKey = "host";
   final _portKey = "port";
@@ -32,6 +33,7 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
   final _rootPathKey = "rootPath";
   final _durationKey = "duration";
   final _saveCheckedKey = "saveChecked";
+  final _cacheSizeKey = "cacheSize";
 
   bool _obscurePassword;
   bool _saveChecked;
@@ -61,6 +63,8 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
     _usernameController.dispose();
     _passwordController.dispose();
     _rootPath.dispose();
+    _duration.dispose();
+    _imageCacheSizeController.dispose();
     super.dispose();
   }
 
@@ -73,6 +77,10 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
       await prefs.setString(_rootPathKey, _rootPath.text);
       await prefs.setString(_durationKey, _duration.text);
       await prefs.setBool(_saveCheckedKey, _saveChecked);
+      await prefs.setInt(
+        _cacheSizeKey,
+        int.parse(_imageCacheSizeController.text),
+      );
       await _secureStorage.write(
         key: _passwordKey,
         value: _passwordController.text,
@@ -88,6 +96,7 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
     await prefs.remove(_rootPathKey);
     await prefs.remove(_durationKey);
     await prefs.remove(_saveCheckedKey);
+    await prefs.remove(_cacheSizeKey);
     await _secureStorage.delete(key: _passwordKey);
   }
 
@@ -100,12 +109,14 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
     final rootPath = prefs.getString(_rootPathKey) ?? '';
     final duration = prefs.getString(_durationKey) ?? '';
     final saveChecked = prefs.getBool(_saveCheckedKey) ?? false;
+    final cacheSize = prefs.getInt(_cacheSizeKey);
 
     if (host.isNotEmpty &&
         password.isNotEmpty &&
         username.isNotEmpty &&
         port.isNotEmpty &&
         rootPath.isNotEmpty &&
+        cacheSize != null &&
         duration.isNotEmpty) {
       setState(() {
         _hostController.text = host;
@@ -114,6 +125,7 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
         _passwordController.text = password;
         _rootPath.text = rootPath;
         _duration.text = duration;
+        _imageCacheSizeController.text = cacheSize.toString();
         _saveChecked = saveChecked;
       });
 
@@ -163,6 +175,7 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
               sftp: sftp,
               imagePaths: allPaths,
               duration: Duration(seconds: int.parse(_duration.text)),
+              imageCacheSize: int.parse(_imageCacheSizeController.text),
             ),
           ),
         );
@@ -319,6 +332,28 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
                       decoration: const InputDecoration(
                         labelText: 'Duration (seconds)',
                         hintText: 'a number of seconds',
+                        prefixIcon: Icon(Icons.settings_ethernet),
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a number';
+                        }
+                        final num = int.tryParse(value);
+                        if (num == null) {
+                          return 'Please enter a valid number';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    TextFormField(
+                      controller: _imageCacheSizeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Image Cache Size',
+                        hintText: 'number of images to cache',
                         prefixIcon: Icon(Icons.settings_ethernet),
                         border: OutlineInputBorder(),
                       ),
