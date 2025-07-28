@@ -30,7 +30,8 @@ class PhotoframeController extends StatefulWidget {
   State<PhotoframeController> createState() => _PhotoframeControllerState();
 }
 
-class _PhotoframeControllerState extends State<PhotoframeController> {
+class _PhotoframeControllerState extends State<PhotoframeController>
+    with WidgetsBindingObserver {
   Image? image;
   Cache<Uint8List> cache = Cache<Uint8List>(maxSize: 10);
   final random = Random();
@@ -61,6 +62,7 @@ class _PhotoframeControllerState extends State<PhotoframeController> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     cache = Cache<Uint8List>(maxSize: widget.imageCacheSize);
     nextScheduler();
   }
@@ -164,7 +166,40 @@ class _PhotoframeControllerState extends State<PhotoframeController> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+        // App going to background
+        _handleAppPaused();
+        break;
+      // case AppLifecycleState.resumed:
+      //   // App coming back to foreground
+      //   _handleAppResumed();
+      //   break;
+      default:
+        break;
+    }
+  }
+
+  void _handleAppPaused() {
+    // Keep SSH alive or save state
+    // sshManager.startHeartbeat();
+    final context = widget.navigatorKey.currentContext;
+    if (context != null && context.mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  // void _handleAppResumed() {
+  //   // Reconnect if needed
+  //   // if (!sshClient.isConnected) {
+  //   //   sshClient.reconnect();
+  //   // }
+  // }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     keepSreen(false);
     disconnect();
     _cleanTimer();
