@@ -118,10 +118,24 @@ class _PhotoframeControllerState extends State<PhotoframeController>
         alignment: Alignment.center,
         width: double.infinity,
         height: double.infinity,
-        child: image ?? const CircularProgressIndicator(),
+        child: _createImageNonInteractViewer(),
+        // child: _timer == null
+        //     ? _createImageInteractViewer()
+        //     : _createImageNonInteractViewer(),
       ),
     );
   }
+
+  Widget? _createImageNonInteractViewer() {
+    return image ?? const CircularProgressIndicator();
+  }
+
+  // Widget? _createImageInteractViewer() {
+  //   return InteractiveViewer(
+  //     panEnabled: false,
+  //     child: image ?? const CircularProgressIndicator(),
+  //   );
+  // }
 
   void _onDoubleTapLeft() {
     final previousItem = cache.getPreviousItem();
