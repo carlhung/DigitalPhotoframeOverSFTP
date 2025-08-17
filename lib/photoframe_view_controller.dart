@@ -4,14 +4,14 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:keep_screen_on/keep_screen_on.dart';
+import 'package:photoframe/connection_view_controller.dart';
 import 'dart:io' show Platform;
 
 import 'package:photoframe/helpers.dart';
 
 class PhotoframeController extends StatefulWidget {
   final GlobalKey<NavigatorState> navigatorKey;
-  final SftpClient sftp;
-  final SSHClient client;
+  final ConnectionModule connection;
   final List<String> imagePaths;
   final Duration duration;
   final int imageCacheSize;
@@ -19,8 +19,7 @@ class PhotoframeController extends StatefulWidget {
   const PhotoframeController({
     super.key,
     required this.navigatorKey,
-    required this.sftp,
-    required this.client,
+    required this.connection,
     required this.imagePaths,
     required this.duration,
     required this.imageCacheSize,
@@ -69,8 +68,7 @@ class _PhotoframeControllerState extends State<PhotoframeController>
 
   Future<Image?> loadImage(String path) async {
     try {
-      final file = await widget.sftp.open(path);
-      final content = await file.readBytes();
+      final content = await widget.connection.open(path);
       cache.add(content);
       return Image.memory(content);
     } catch (e) {
@@ -158,8 +156,7 @@ class _PhotoframeControllerState extends State<PhotoframeController>
   }
 
   void disconnect() {
-    widget.sftp.close();
-    widget.client.close();
+    widget.connection.disconnect();
   }
 
   Future<void> nextScheduler() async {

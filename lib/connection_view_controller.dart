@@ -6,6 +6,7 @@ import 'package:photoframe/helpers.dart';
 import 'package:photoframe/photoframe_view_controller.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:typed_data';
 
 class ConnectionFormWidget extends StatefulWidget {
   final GlobalKey<NavigatorState> navigatorKey;
@@ -144,23 +145,20 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
     if (!_formKey.currentState!.validate()) return;
     try {
       final port = int.tryParse(_portController.text);
-      final socket = await SSHSocket.connect(_hostController.text, port!);
-      final client = SSHClient(
-        socket,
-        username: _usernameController.text,
-        onPasswordRequest: () => _passwordController.text,
+      final connection = SSHconnection(
+        _hostController.text,
+        port!,
+        _usernameController.text,
+        _passwordController.text,
       );
-      final sftp = await client.sftp();
-      final loadTargetPathCommand =
-          'cd ${_rootPath.text} && find "\$(pwd)" -type f';
-      final result = await client.run(loadTargetPathCommand, stderr: false);
-      final allPaths = utf8.decode(result).split("\n").where((path) {
-        final trimmedPath = path.trim();
-        if (trimmedPath.isEmpty) return false;
-        final fileExtenion = p.extension(trimmedPath).toLowerCase();
+      await connection.init();
+      final returnedPaths = await connection.getPathsInFolder(_rootPath.text);
+      final allPaths = returnedPaths.where((path) {
+        final fileExtenion = p.extension(path).toLowerCase();
         if (!acceptedFormats.contains(fileExtenion)) return false;
         return true;
       }).toList();
+
       if (allPaths.isEmpty) {
         throw Exception("No valid image files found in the specified path.");
       }
@@ -171,8 +169,7 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
           MaterialPageRoute(
             builder: (context) => PhotoframeController(
               navigatorKey: widget.navigatorKey,
-              client: client,
-              sftp: sftp,
+              connection: connection,
               imagePaths: allPaths,
               duration: Duration(seconds: int.parse(_duration.text)),
               imageCacheSize: int.parse(_imageCacheSizeController.text),
@@ -408,5 +405,58 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
         ),
       ),
     );
+  }
+}
+
+abstract class ConnectionModule {
+  Future<void> init();
+  Future<List<String>> getPathsInFolder(String path);
+  void disconnect();
+  Future<Uint8List> open(String path);
+}
+
+class SSHconnection extends ConnectionModule {
+  final String host;
+  final String password;
+  final int port;
+  final String username;
+  late SftpClient sftp;
+  late SSHSocket socket;
+  late SSHClient client;
+  SSHconnection(this.host, this.port, this.username, this.password);
+
+  @override
+  Future<void> init() async {
+    socket = await SSHSocket.connect(host, port);
+    client = SSHClient(
+      socket,
+      username: username,
+      onPasswordRequest: () => password,
+    );
+    sftp = await client.sftp();
+  }
+
+  @override
+  Future<List<String>> getPathsInFolder(String path) async {
+    final loadTargetPathCommand = 'cd $path && find "\$(pwd)" -type f';
+    final result = await client.run(loadTargetPathCommand, stderr: false);
+    final allPaths = utf8.decode(result).split("\n").where((path) {
+      final trimmedPath = path.trim();
+      if (trimmedPath.isEmpty) return false;
+      return true;
+    }).toList();
+    return allPaths;
+  }
+
+  @override
+  void disconnect() {
+    sftp.close();
+    client.close();
+  }
+
+  @override
+  Future<Uint8List> open(String path) async {
+    final file = await sftp.open(path);
+    return await file.readBytes();
   }
 }
