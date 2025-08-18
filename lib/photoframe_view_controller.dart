@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'dart:typed_data';
-import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:keep_screen_on/keep_screen_on.dart';
