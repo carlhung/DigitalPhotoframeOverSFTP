@@ -36,6 +36,15 @@ class _PhotoframeControllerState extends State<PhotoframeController>
   Timer? _timer;
   bool isPlaying = true;
 
+  // Zoom and pan state
+  double _scale = 1.0;
+  Offset _offset = Offset.zero;
+  Offset _startFocalPoint = Offset.zero;
+  Offset _startOffset = Offset.zero;
+  double _startScale = 1.0;
+  Offset _scaleStartPosition = Offset.zero;
+  Offset _currentFocalPoint = Offset.zero;
+
   void keepSreen(bool value) {
     if (Platform.isAndroid || Platform.isIOS) {
       if (value) {
@@ -103,12 +112,58 @@ class _PhotoframeControllerState extends State<PhotoframeController>
           // Double-tap on the right side
           _onDoubleTapRight();
         }
+
         isPlaying = false;
       },
-      onPanEnd: (details) {
+      onScaleStart: (details) {
         if (!isPlaying) {
-          isPlaying = true;
-          nextScheduler();
+          _startFocalPoint = details.focalPoint;
+          _startOffset = _offset;
+          _startScale = _scale;
+          _scaleStartPosition = details.focalPoint;
+          _currentFocalPoint = details.focalPoint;
+        }
+      },
+      onScaleUpdate: (details) {
+        if (!isPlaying) {
+          _currentFocalPoint = details.focalPoint; // Track current focal point
+          setState(() {
+            _scale = (_startScale * details.scale).clamp(1.0, 4.0);
+
+            // Pan only if zoomed in
+            if (_scale > 1.0) {
+              final focalPointDelta = details.focalPoint - _startFocalPoint;
+              _offset = _startOffset + focalPointDelta / _scale;
+
+              // Constrain offset to prevent over-panning
+              final screenSize = MediaQuery.of(context).size;
+              final maxOffset = screenSize.width * (_scale - 1) / (2 * _scale);
+              _offset = Offset(
+                _offset.dx.clamp(-maxOffset, maxOffset),
+                _offset.dy.clamp(-maxOffset, maxOffset),
+              );
+            } else {
+              resetImageSize();
+            }
+          });
+        }
+      },
+      onScaleEnd: (details) {
+        if (!isPlaying && _scale <= 1.0) {
+          // Check for left-to-right swipe to resume playing
+          final screenWidth = MediaQuery.of(context).size.width;
+          final swipeDistance = _currentFocalPoint.dx - _scaleStartPosition.dx;
+          final swipeThreshold = screenWidth * 0.2; // 20% of screen width
+
+          if (swipeDistance > swipeThreshold) {
+            isPlaying = true;
+            nextScheduler();
+          }
+
+          // Reset zoom but don't resume playing
+          setState(() {
+            resetImageSize();
+          });
         }
       },
       child: Container(
@@ -123,8 +178,23 @@ class _PhotoframeControllerState extends State<PhotoframeController>
     );
   }
 
+  void resetImageSize() {
+    _scale = 1.0;
+    _offset = Offset.zero;
+  }
+
   Widget? _createImageNonInteractViewer() {
-    return image ?? const CircularProgressIndicator();
+    if (image == null) {
+      return const CircularProgressIndicator();
+    }
+
+    return Transform(
+      transform: Matrix4.identity()
+        ..scale(_scale)
+        ..translate(_offset.dx, _offset.dy),
+      alignment: Alignment.center,
+      child: image!,
+    );
   }
 
   // Widget? _createImageInteractViewer() {
@@ -140,6 +210,7 @@ class _PhotoframeControllerState extends State<PhotoframeController>
       _cleanTimer();
       setState(() {
         image = Image.memory(previousItem);
+        resetImageSize();
       });
     }
   }
@@ -150,6 +221,7 @@ class _PhotoframeControllerState extends State<PhotoframeController>
       _cleanTimer();
       setState(() {
         image = Image.memory(nextItem);
+        resetImageSize();
       });
     }
   }
