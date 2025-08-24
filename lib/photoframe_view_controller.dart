@@ -327,7 +327,7 @@ class _PhotoframeControllerState extends State<PhotoframeController>
             margin: const EdgeInsets.all(20),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.8),
+              color: Colors.black.withValues(alpha: 0.8),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -406,7 +406,7 @@ class _PhotoframeControllerState extends State<PhotoframeController>
             },
             icon: const Icon(Icons.arrow_back, color: Colors.white, size: 30),
             style: IconButton.styleFrom(
-              backgroundColor: Colors.black.withOpacity(0.8),
+              backgroundColor: Colors.black.withValues(alpha: 0.8),
               shape: const CircleBorder(),
             ),
           ),
