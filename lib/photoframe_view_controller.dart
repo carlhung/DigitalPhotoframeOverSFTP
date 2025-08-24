@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:keep_screen_on/keep_screen_on.dart';
 import 'package:photoframe/connection_view_controller.dart';
 import 'dart:io' show Platform;
+import 'package:exif/exif.dart';
 
 import 'package:photoframe/helpers.dart';
 
@@ -81,6 +82,41 @@ class _PhotoframeControllerState extends State<PhotoframeController>
           ? filename.split('.').last.toUpperCase()
           : 'Unknown';
 
+      // Extract EXIF data
+      final exifData = await readExifFromBytes(imageData);
+
+      // Extract location data
+      String? location;
+      String? dateTaken;
+      String? camera;
+      String? cameraModel;
+
+      if (exifData.isNotEmpty) {
+        // GPS coordinates
+        final gpsLat = exifData['GPS GPSLatitude'];
+        final gpsLatRef = exifData['GPS GPSLatitudeRef'];
+        final gpsLon = exifData['GPS GPSLongitude'];
+        final gpsLonRef = exifData['GPS GPSLongitudeRef'];
+
+        if (gpsLat != null && gpsLon != null) {
+          // Convert GPS coordinates to decimal degrees
+          final lat = _convertDMSToDD(gpsLat.toString(), gpsLatRef?.toString());
+          final lon = _convertDMSToDD(gpsLon.toString(), gpsLonRef?.toString());
+          if (lat != null && lon != null) {
+            location = '${lat.toStringAsFixed(6)}, ${lon.toStringAsFixed(6)}';
+          }
+        }
+
+        // Date taken
+        dateTaken =
+            exifData['Image DateTime']?.toString() ??
+            exifData['EXIF DateTimeOriginal']?.toString();
+
+        // Camera info
+        camera = exifData['Image Make']?.toString();
+        cameraModel = exifData['Image Model']?.toString();
+      }
+
       _imageMetadata = {
         'filename': filename,
         'path': path,
@@ -92,6 +128,10 @@ class _PhotoframeControllerState extends State<PhotoframeController>
             : '$fileSizeKB KB',
         'format': fileExtension,
         'resolution': '${image.width} × ${image.height}',
+        'location': location ?? 'No location data',
+        'dateTaken': dateTaken ?? 'Unknown',
+        'camera': camera ?? 'Unknown',
+        'cameraModel': cameraModel ?? 'Unknown',
       };
 
       image.dispose();
@@ -99,9 +139,35 @@ class _PhotoframeControllerState extends State<PhotoframeController>
       _imageMetadata = {
         'filename': path.split('/').last,
         'path': path,
-        'error': 'Could not extract metadata',
+        'error': 'Could not extract metadata: $e',
       };
     }
+  }
+
+  double? _convertDMSToDD(String dmsString, String? ref) {
+    try {
+      // Parse DMS format like "[41, 53, 23.15]"
+      final cleanString = dmsString.replaceAll(RegExp(r'[\[\]]'), '');
+      final parts = cleanString.split(', ');
+
+      if (parts.length >= 3) {
+        final degrees = double.parse(parts[0]);
+        final minutes = double.parse(parts[1]);
+        final seconds = double.parse(parts[2]);
+
+        double dd = degrees + (minutes / 60) + (seconds / 3600);
+
+        // Apply reference direction
+        if (ref == 'S' || ref == 'W') {
+          dd = -dd;
+        }
+
+        return dd;
+      }
+    } catch (e) {
+      // Ignore parsing errors
+    }
+    return null;
   }
 
   _PhotoframeControllerState() {
@@ -294,6 +360,14 @@ class _PhotoframeControllerState extends State<PhotoframeController>
                 _imageMetadata['aspectRatio'] ?? '',
               ),
               _buildMetadataRow('File Size', _imageMetadata['fileSize'] ?? ''),
+              const SizedBox(height: 8),
+              _buildMetadataRow(
+                'Date Taken',
+                _imageMetadata['dateTaken'] ?? '',
+              ),
+              _buildMetadataRow('Camera', _imageMetadata['camera'] ?? ''),
+              _buildMetadataRow('Model', _imageMetadata['cameraModel'] ?? ''),
+              _buildMetadataRow('Location', _imageMetadata['location'] ?? ''),
               const SizedBox(height: 8),
               _buildMetadataRow(
                 'Path',
