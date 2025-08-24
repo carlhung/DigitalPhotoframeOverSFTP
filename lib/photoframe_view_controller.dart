@@ -221,13 +221,11 @@ class _PhotoframeControllerState extends State<PhotoframeController>
         final dx = details.localPosition.dx;
         if (dx < width / 2) {
           // Double-tap on the left side
-          _onDoubleTapLeft();
+          _onDoubleTap(_OnDoubleTapDirection.left);
         } else {
           // Double-tap on the right side
-          _onDoubleTapRight();
+          _onDoubleTap(_OnDoubleTapDirection.right);
         }
-
-        isPlaying = false;
       },
       onScaleStart: (details) {
         if (!isPlaying) {
@@ -322,67 +320,98 @@ class _PhotoframeControllerState extends State<PhotoframeController>
   }
 
   Widget _buildImageDetailsOverlay() {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.all(20),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.8),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Image Details',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+    return Stack(
+      children: [
+        Center(
+          child: Container(
+            margin: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(12),
             ),
-            const SizedBox(height: 16),
-            if (_imageMetadata.isNotEmpty) ...[
-              _buildMetadataRow('Filename', _imageMetadata['filename'] ?? ''),
-              _buildMetadataRow('Format', _imageMetadata['format'] ?? ''),
-              _buildMetadataRow(
-                'Resolution',
-                _imageMetadata['resolution'] ?? '',
-              ),
-              _buildMetadataRow(
-                'Aspect Ratio',
-                _imageMetadata['aspectRatio'] ?? '',
-              ),
-              _buildMetadataRow('File Size', _imageMetadata['fileSize'] ?? ''),
-              const SizedBox(height: 8),
-              _buildMetadataRow(
-                'Date Taken',
-                _imageMetadata['dateTaken'] ?? '',
-              ),
-              _buildMetadataRow('Camera', _imageMetadata['camera'] ?? ''),
-              _buildMetadataRow('Model', _imageMetadata['cameraModel'] ?? ''),
-              _buildMetadataRow('Location', _imageMetadata['location'] ?? ''),
-              const SizedBox(height: 8),
-              _buildMetadataRow(
-                'Path',
-                _imageMetadata['path'] ?? '',
-                isPath: true,
-              ),
-              if (_imageMetadata['error'] != null)
-                _buildMetadataRow(
-                  'Error',
-                  _imageMetadata['error'],
-                  isError: true,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Image Details',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-            ] else
-              const Text(
-                'Loading metadata...',
-                style: TextStyle(color: Colors.grey, fontSize: 14),
-              ),
-          ],
+                const SizedBox(height: 16),
+                if (_imageMetadata.isNotEmpty) ...[
+                  _buildMetadataRow(
+                    'Filename',
+                    _imageMetadata['filename'] ?? '',
+                  ),
+                  _buildMetadataRow('Format', _imageMetadata['format'] ?? ''),
+                  _buildMetadataRow(
+                    'Resolution',
+                    _imageMetadata['resolution'] ?? '',
+                  ),
+                  _buildMetadataRow(
+                    'Aspect Ratio',
+                    _imageMetadata['aspectRatio'] ?? '',
+                  ),
+                  _buildMetadataRow(
+                    'File Size',
+                    _imageMetadata['fileSize'] ?? '',
+                  ),
+                  const SizedBox(height: 8),
+                  _buildMetadataRow(
+                    'Date Taken',
+                    _imageMetadata['dateTaken'] ?? '',
+                  ),
+                  _buildMetadataRow('Camera', _imageMetadata['camera'] ?? ''),
+                  _buildMetadataRow(
+                    'Model',
+                    _imageMetadata['cameraModel'] ?? '',
+                  ),
+                  _buildMetadataRow(
+                    'Location',
+                    _imageMetadata['location'] ?? '',
+                  ),
+                  const SizedBox(height: 8),
+                  _buildMetadataRow(
+                    'Path',
+                    _imageMetadata['path'] ?? '',
+                    isPath: true,
+                  ),
+                  if (_imageMetadata['error'] != null)
+                    _buildMetadataRow(
+                      'Error',
+                      _imageMetadata['error'],
+                      isError: true,
+                    ),
+                ] else
+                  const Text(
+                    'Loading metadata...',
+                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                  ),
+              ],
+            ),
+          ),
         ),
-      ),
+        // Back button in top left corner
+        Positioned(
+          top: 40,
+          left: 20,
+          child: IconButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 30),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.black.withOpacity(0.8),
+              shape: const CircleBorder(),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -424,32 +453,23 @@ class _PhotoframeControllerState extends State<PhotoframeController>
     );
   }
 
-  void _onDoubleTapLeft() {
-    final previousItem = _cache.getPreviousItem();
-    if (previousItem != null) {
-      _cleanTimer();
-
-      _extractImageMetadata(previousItem.$2, previousItem.$1).then((_) {
-        setState(() {
-          _showImageDetails = false;
-
-          image = Image.memory(previousItem.$2);
-          resetImageSize();
-        });
-      });
+  void _onDoubleTap(_OnDoubleTapDirection direction) {
+    (String, Uint8List)? item;
+    switch (direction) {
+      case _OnDoubleTapDirection.left:
+        item = _cache.getPreviousItem();
+      case _OnDoubleTapDirection.right:
+        item = _cache.getNextItem();
     }
-  }
 
-  void _onDoubleTapRight() {
-    final nextItem = _cache.getNextItem();
-    if (nextItem != null) {
+    if (item != null) {
+      final unwrappedItem = item;
       _cleanTimer();
-
-      _extractImageMetadata(nextItem.$2, nextItem.$1).then((_) {
+      _extractImageMetadata(unwrappedItem.$2, unwrappedItem.$1).then((_) {
         setState(() {
           _showImageDetails = false;
-
-          image = Image.memory(nextItem.$2);
+          isPlaying = false;
+          image = Image.memory(unwrappedItem.$2);
           resetImageSize();
         });
       });
@@ -518,3 +538,5 @@ class _PhotoframeControllerState extends State<PhotoframeController>
     super.dispose();
   }
 }
+
+enum _OnDoubleTapDirection { left, right }
