@@ -7,7 +7,7 @@ import 'package:keep_screen_on/keep_screen_on.dart';
 import 'package:photoframe/connection_view_controller.dart';
 import 'dart:io' show Platform;
 import 'package:exif/exif.dart';
-
+import 'package:photoframe/Cache.dart';
 import 'package:photoframe/helpers.dart';
 
 class PhotoframeController extends StatefulWidget {
@@ -33,7 +33,7 @@ class PhotoframeController extends StatefulWidget {
 class _PhotoframeControllerState extends State<PhotoframeController>
     with WidgetsBindingObserver {
   Image? image;
-  Cache<Uint8List> cache = Cache<Uint8List>(maxSize: 10);
+  Cache<(String, Uint8List)> _cache = Cache<(String, Uint8List)>(maxSize: 10);
   final random = Random();
   Timer? _timer;
   bool isPlaying = true;
@@ -178,16 +178,16 @@ class _PhotoframeControllerState extends State<PhotoframeController>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    cache = Cache<Uint8List>(maxSize: widget.imageCacheSize);
+    _cache = Cache<(String, Uint8List)>(maxSize: widget.imageCacheSize);
     nextScheduler();
   }
 
   Future<Image?> loadImage(String path) async {
     try {
       final content = await widget.connection.open(path);
-      cache.add(content);
+      _cache.add((path, content));
 
-      _extractImageMetadata(content, path);
+      await _extractImageMetadata(content, path);
 
       return Image.memory(content);
     } catch (e) {
@@ -296,7 +296,7 @@ class _PhotoframeControllerState extends State<PhotoframeController>
         alignment: Alignment.center,
         width: double.infinity,
         height: double.infinity,
-        child: _createImageNonInteractViewer(),
+        child: _createImageWidget(),
       ),
     );
   }
@@ -306,7 +306,7 @@ class _PhotoframeControllerState extends State<PhotoframeController>
     _offset = Offset.zero;
   }
 
-  Widget? _createImageNonInteractViewer() {
+  Widget? _createImageWidget() {
     if (image == null) {
       return const CircularProgressIndicator();
     }
@@ -430,23 +430,33 @@ class _PhotoframeControllerState extends State<PhotoframeController>
   }
 
   void _onDoubleTapLeft() {
-    final previousItem = cache.getPreviousItem();
+    final previousItem = _cache.getPreviousItem();
     if (previousItem != null) {
       _cleanTimer();
-      setState(() {
-        image = Image.memory(previousItem);
-        resetImageSize();
+
+      _extractImageMetadata(previousItem.$2, previousItem.$1).then((_) {
+        setState(() {
+          _showImageDetails = false;
+
+          image = Image.memory(previousItem.$2);
+          resetImageSize();
+        });
       });
     }
   }
 
   void _onDoubleTapRight() {
-    final nextItem = cache.getNextItem();
+    final nextItem = _cache.getNextItem();
     if (nextItem != null) {
       _cleanTimer();
-      setState(() {
-        image = Image.memory(nextItem);
-        resetImageSize();
+
+      _extractImageMetadata(nextItem.$2, nextItem.$1).then((_) {
+        setState(() {
+          _showImageDetails = false;
+
+          image = Image.memory(nextItem.$2);
+          resetImageSize();
+        });
       });
     }
   }
@@ -511,64 +521,5 @@ class _PhotoframeControllerState extends State<PhotoframeController>
     disconnect();
     _cleanTimer();
     super.dispose();
-  }
-}
-
-final class Cache<T> {
-  final int maxSize;
-  final List<T> _cache = [];
-  int currentIndex = 0;
-  int get length => _cache.length;
-  bool _isStartedGettingItems = false;
-
-  Cache({this.maxSize = 10});
-
-  void add(T item) {
-    _isStartedGettingItems = false;
-    _cache.add(item);
-    if (_cache.length > maxSize) {
-      _cache.removeAt(0);
-    }
-  }
-
-  T? getPreviousItem() {
-    if (_cache.isEmpty) return null;
-    if (!_isStartedGettingItems) {
-      _isStartedGettingItems = true;
-      currentIndex = _cache.length - 1 - 1;
-      if (currentIndex < 0) {
-        currentIndex = 0;
-        return null;
-      }
-      return _cache[currentIndex];
-    } else {
-      currentIndex--;
-      if (currentIndex < 0) {
-        currentIndex = 0;
-        return null;
-      }
-      return _cache[currentIndex];
-    }
-  }
-
-  T? getNextItem() {
-    if (_cache.isEmpty) return null;
-    if (!_isStartedGettingItems) {
-      _isStartedGettingItems = true;
-      currentIndex = _cache.length - 1;
-      return null;
-    } else {
-      currentIndex++;
-      if (currentIndex >= _cache.length) {
-        currentIndex = _cache.length - 1;
-        return null;
-      }
-      return _cache[currentIndex];
-    }
-  }
-
-  void reset() {
-    _isStartedGettingItems = false;
-    currentIndex = 0;
   }
 }
