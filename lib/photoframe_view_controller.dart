@@ -155,6 +155,7 @@ class _PhotoframeControllerState extends State<PhotoframeController>
         }
       },
       onDoubleTapDown: (details) {
+        // detect the double taps from left or right.
         final width = MediaQuery.of(context).size.width;
         final dx = details.localPosition.dx;
         if (dx < width / 2) {
@@ -178,28 +179,33 @@ class _PhotoframeControllerState extends State<PhotoframeController>
       },
       onScaleUpdate: (details) {
         if (!isPlaying) {
+          // for detecting swipe
           _currentFocalPoint = details.focalPoint; // Track current focal point
           setState(() {
+            // for zoom
             _scale = (_startScale * details.scale).clamp(1.0, 4.0);
 
-            // Pan only if zoomed in
+            // The whole if-block is for panning.
             if (_scale > 1.0) {
               final focalPointDelta = details.focalPoint - _startFocalPoint;
-              _offset = _startOffset + focalPointDelta / _scale;
+              final desiredOffset = _startOffset + focalPointDelta / _scale;
 
               // Constrain offset to prevent over-panning
               final screenSize = MediaQuery.of(context).size;
               final maxOffset = screenSize.width * (_scale - 1) / (2 * _scale);
               _offset = Offset(
-                _offset.dx.clamp(-maxOffset, maxOffset),
-                _offset.dy.clamp(-maxOffset, maxOffset),
+                desiredOffset.dx.clamp(-maxOffset, maxOffset),
+                desiredOffset.dy.clamp(-maxOffset, maxOffset),
               );
             } else {
               resetImageSize();
             }
+            // as long as it zoom or pan, the detail view should be hidden.
+            _showImageDetails = false;
           });
         }
       },
+      // it will be called when swiping or zooming.
       onScaleEnd: (details) {
         if (!isPlaying && _scale <= 1.0) {
           // Check for left-to-right swipe to resume playing
@@ -209,10 +215,12 @@ class _PhotoframeControllerState extends State<PhotoframeController>
 
           if (swipeDistance > swipeThreshold) {
             isPlaying = true;
+            _showImageDetails = false;
+            // nextScheduler will call setState.
             nextScheduler();
           }
 
-          // Reset zoom but don't resume playing
+          // when zooming out to scale 1 or swiping
           setState(() {
             resetImageSize();
           });
@@ -237,23 +245,18 @@ class _PhotoframeControllerState extends State<PhotoframeController>
       return const CircularProgressIndicator();
     }
 
-    return _scale <= 1 ? zoomedOut() : zoomedIn();
-  }
-
-  Widget zoomedOut() {
     return Stack(
       alignment: AlignmentDirectional.center,
-      children: [image!, if (_showImageDetails) _buildImageDetailsOverlay()],
-    );
-  }
-
-  Widget zoomedIn() {
-    return Transform(
-      transform: Matrix4.identity()
-        ..scale(_scale)
-        ..translate(_offset.dx, _offset.dy),
-      alignment: Alignment.center,
-      child: image!,
+      children: [
+        Transform(
+          transform: Matrix4.identity()
+            ..scale(_scale)
+            ..translate(_offset.dx, _offset.dy),
+          alignment: Alignment.center,
+          child: image!,
+        ),
+        if (_showImageDetails) _buildImageDetailsOverlay(),
+      ],
     );
   }
 
@@ -312,68 +315,6 @@ class _PhotoframeControllerState extends State<PhotoframeController>
         ),
       ),
     );
-    // return Container(
-    //   width: double.infinity,
-    //   height: double.infinity,
-    //   color: Colors.black.withOpacity(0.5),
-    //   child: Center(
-    //     child: Container(
-    //       margin: const EdgeInsets.all(20),
-    //       padding: const EdgeInsets.all(20),
-    //       decoration: BoxDecoration(
-    //         color: Colors.black.withOpacity(0.8),
-    //         borderRadius: BorderRadius.circular(12),
-    //       ),
-    //       child: Column(
-    //         mainAxisSize: MainAxisSize.min,
-    //         crossAxisAlignment: CrossAxisAlignment.start,
-    //         children: [
-    //           const Text(
-    //             'Image Details',
-    //             style: TextStyle(
-    //               color: Colors.white,
-    //               fontSize: 20,
-    //               fontWeight: FontWeight.bold,
-    //             ),
-    //           ),
-    //           const SizedBox(height: 16),
-    //           if (_imageMetadata.isNotEmpty) ...[
-    //             _buildMetadataRow('Filename', _imageMetadata['filename'] ?? ''),
-    //             _buildMetadataRow('Format', _imageMetadata['format'] ?? ''),
-    //             _buildMetadataRow(
-    //               'Resolution',
-    //               _imageMetadata['resolution'] ?? '',
-    //             ),
-    //             _buildMetadataRow(
-    //               'Aspect Ratio',
-    //               _imageMetadata['aspectRatio'] ?? '',
-    //             ),
-    //             _buildMetadataRow(
-    //               'File Size',
-    //               _imageMetadata['fileSize'] ?? '',
-    //             ),
-    //             const SizedBox(height: 8),
-    //             _buildMetadataRow(
-    //               'Path',
-    //               _imageMetadata['path'] ?? '',
-    //               isPath: true,
-    //             ),
-    //             if (_imageMetadata['error'] != null)
-    //               _buildMetadataRow(
-    //                 'Error',
-    //                 _imageMetadata['error'],
-    //                 isError: true,
-    //               ),
-    //           ] else
-    //             const Text(
-    //               'Loading metadata...',
-    //               style: TextStyle(color: Colors.grey, fontSize: 14),
-    //             ),
-    //         ],
-    //       ),
-    //     ),
-    //   ),
-    // );
   }
 
   Widget _buildMetadataRow(
@@ -413,13 +354,6 @@ class _PhotoframeControllerState extends State<PhotoframeController>
       ),
     );
   }
-
-  // Widget? _createImageInteractViewer() {
-  //   return InteractiveViewer(
-  //     panEnabled: false,
-  //     child: image ?? const CircularProgressIndicator(),
-  //   );
-  // }
 
   void _onDoubleTapLeft() {
     final previousItem = cache.getPreviousItem();
