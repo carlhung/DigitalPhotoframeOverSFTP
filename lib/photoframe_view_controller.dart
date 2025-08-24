@@ -49,7 +49,7 @@ class _PhotoframeControllerState extends State<PhotoframeController>
   Offset _currentFocalPoint = Offset.zero;
   bool _showImageDetails = false;
 
-  void keepSreen(bool value) {
+  void keepScreen(bool value) {
     if (Platform.isAndroid || Platform.isIOS) {
       if (value) {
         KeepScreenOn.turnOn();
@@ -100,8 +100,8 @@ class _PhotoframeControllerState extends State<PhotoframeController>
 
         if (gpsLat != null && gpsLon != null) {
           // Convert GPS coordinates to decimal degrees
-          final lat = _convertDMSToDD(gpsLat.toString(), gpsLatRef?.toString());
-          final lon = _convertDMSToDD(gpsLon.toString(), gpsLonRef?.toString());
+          final lat = _gpsValuesToFloat(gpsLat.values, gpsLatRef?.toString());
+          final lon = _gpsValuesToFloat(gpsLon.values, gpsLonRef?.toString());
           if (lat != null && lon != null) {
             location = '${lat.toStringAsFixed(6)}, ${lon.toStringAsFixed(6)}';
           }
@@ -144,34 +144,29 @@ class _PhotoframeControllerState extends State<PhotoframeController>
     }
   }
 
-  double? _convertDMSToDD(String dmsString, String? ref) {
-    try {
-      // Parse DMS format like "[41, 53, 23.15]"
-      final cleanString = dmsString.replaceAll(RegExp(r'[\[\]]'), '');
-      final parts = cleanString.split(', ');
-
-      if (parts.length >= 3) {
-        final degrees = double.parse(parts[0]);
-        final minutes = double.parse(parts[1]);
-        final seconds = double.parse(parts[2]);
-
-        double dd = degrees + (minutes / 60) + (seconds / 3600);
-
-        // Apply reference direction
-        if (ref == 'S' || ref == 'W') {
-          dd = -dd;
-        }
-
-        return dd;
-      }
-    } catch (e) {
-      // Ignore parsing errors
-    }
-    return null;
+  _PhotoframeControllerState() {
+    keepScreen(true);
   }
 
-  _PhotoframeControllerState() {
-    keepSreen(true);
+  double? _gpsValuesToFloat(IfdValues? values, String? ref) {
+    if (values == null || values is! IfdRatios) {
+      return null;
+    }
+
+    double sum = 0.0;
+    double unit = 1.0;
+
+    for (final v in values.ratios) {
+      sum += v.toDouble() * unit;
+      unit /= 60.0;
+    }
+
+    // Apply reference direction
+    if (ref == 'S' || ref == 'W') {
+      sum = -sum;
+    }
+
+    return sum;
   }
 
   @override
@@ -517,7 +512,7 @@ class _PhotoframeControllerState extends State<PhotoframeController>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    keepSreen(false);
+    keepScreen(false);
     disconnect();
     _cleanTimer();
     super.dispose();
