@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:keep_screen_on/keep_screen_on.dart';
@@ -35,6 +36,7 @@ class _PhotoframeControllerState extends State<PhotoframeController>
   final random = Random();
   Timer? _timer;
   bool isPlaying = true;
+  Map<String, dynamic> _imageMetadata = {};
 
   // Zoom and pan state
   double _scale = 1.0;
@@ -44,6 +46,7 @@ class _PhotoframeControllerState extends State<PhotoframeController>
   double _startScale = 1.0;
   Offset _scaleStartPosition = Offset.zero;
   Offset _currentFocalPoint = Offset.zero;
+  bool _showImageDetails = false;
 
   void keepSreen(bool value) {
     if (Platform.isAndroid || Platform.isIOS) {
@@ -59,6 +62,45 @@ class _PhotoframeControllerState extends State<PhotoframeController>
     if (_timer != null) {
       _timer!.cancel();
       _timer = null;
+    }
+  }
+
+  Future<void> _extractImageMetadata(Uint8List imageData, String path) async {
+    try {
+      final codec = await ui.instantiateImageCodec(imageData);
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+
+      // Get file size
+      final fileSizeKB = (imageData.length / 1024).round();
+      final fileSizeMB = (fileSizeKB / 1024);
+
+      // Extract filename from path
+      final filename = path.split('/').last;
+      final fileExtension = filename.contains('.')
+          ? filename.split('.').last.toUpperCase()
+          : 'Unknown';
+
+      _imageMetadata = {
+        'filename': filename,
+        'path': path,
+        'width': image.width,
+        'height': image.height,
+        'aspectRatio': (image.width / image.height).toStringAsFixed(2),
+        'fileSize': fileSizeMB >= 1
+            ? '${fileSizeMB.toStringAsFixed(2)} MB'
+            : '$fileSizeKB KB',
+        'format': fileExtension,
+        'resolution': '${image.width} × ${image.height}',
+      };
+
+      image.dispose();
+    } catch (e) {
+      _imageMetadata = {
+        'filename': path.split('/').last,
+        'path': path,
+        'error': 'Could not extract metadata',
+      };
     }
   }
 
@@ -78,6 +120,9 @@ class _PhotoframeControllerState extends State<PhotoframeController>
     try {
       final content = await widget.connection.open(path);
       cache.add(content);
+
+      _extractImageMetadata(content, path);
+
       return Image.memory(content);
     } catch (e) {
       final context = widget.navigatorKey.currentContext;
@@ -102,6 +147,13 @@ class _PhotoframeControllerState extends State<PhotoframeController>
   Widget _body() {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
+      onTap: () {
+        if (!isPlaying && _scale <= 1) {
+          setState(() {
+            _showImageDetails = !_showImageDetails;
+          });
+        }
+      },
       onDoubleTapDown: (details) {
         final width = MediaQuery.of(context).size.width;
         final dx = details.localPosition.dx;
@@ -171,9 +223,6 @@ class _PhotoframeControllerState extends State<PhotoframeController>
         width: double.infinity,
         height: double.infinity,
         child: _createImageNonInteractViewer(),
-        // child: _timer == null
-        //     ? _createImageInteractViewer()
-        //     : _createImageNonInteractViewer(),
       ),
     );
   }
@@ -188,12 +237,180 @@ class _PhotoframeControllerState extends State<PhotoframeController>
       return const CircularProgressIndicator();
     }
 
+    return _scale <= 1 ? zoomedOut() : zoomedIn();
+  }
+
+  Widget zoomedOut() {
+    return Stack(
+      alignment: AlignmentDirectional.center,
+      children: [image!, if (_showImageDetails) _buildImageDetailsOverlay()],
+    );
+  }
+
+  Widget zoomedIn() {
     return Transform(
       transform: Matrix4.identity()
         ..scale(_scale)
         ..translate(_offset.dx, _offset.dy),
       alignment: Alignment.center,
       child: image!,
+    );
+  }
+
+  Widget _buildImageDetailsOverlay() {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Image Details',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_imageMetadata.isNotEmpty) ...[
+              _buildMetadataRow('Filename', _imageMetadata['filename'] ?? ''),
+              _buildMetadataRow('Format', _imageMetadata['format'] ?? ''),
+              _buildMetadataRow(
+                'Resolution',
+                _imageMetadata['resolution'] ?? '',
+              ),
+              _buildMetadataRow(
+                'Aspect Ratio',
+                _imageMetadata['aspectRatio'] ?? '',
+              ),
+              _buildMetadataRow('File Size', _imageMetadata['fileSize'] ?? ''),
+              const SizedBox(height: 8),
+              _buildMetadataRow(
+                'Path',
+                _imageMetadata['path'] ?? '',
+                isPath: true,
+              ),
+              if (_imageMetadata['error'] != null)
+                _buildMetadataRow(
+                  'Error',
+                  _imageMetadata['error'],
+                  isError: true,
+                ),
+            ] else
+              const Text(
+                'Loading metadata...',
+                style: TextStyle(color: Colors.grey, fontSize: 14),
+              ),
+          ],
+        ),
+      ),
+    );
+    // return Container(
+    //   width: double.infinity,
+    //   height: double.infinity,
+    //   color: Colors.black.withOpacity(0.5),
+    //   child: Center(
+    //     child: Container(
+    //       margin: const EdgeInsets.all(20),
+    //       padding: const EdgeInsets.all(20),
+    //       decoration: BoxDecoration(
+    //         color: Colors.black.withOpacity(0.8),
+    //         borderRadius: BorderRadius.circular(12),
+    //       ),
+    //       child: Column(
+    //         mainAxisSize: MainAxisSize.min,
+    //         crossAxisAlignment: CrossAxisAlignment.start,
+    //         children: [
+    //           const Text(
+    //             'Image Details',
+    //             style: TextStyle(
+    //               color: Colors.white,
+    //               fontSize: 20,
+    //               fontWeight: FontWeight.bold,
+    //             ),
+    //           ),
+    //           const SizedBox(height: 16),
+    //           if (_imageMetadata.isNotEmpty) ...[
+    //             _buildMetadataRow('Filename', _imageMetadata['filename'] ?? ''),
+    //             _buildMetadataRow('Format', _imageMetadata['format'] ?? ''),
+    //             _buildMetadataRow(
+    //               'Resolution',
+    //               _imageMetadata['resolution'] ?? '',
+    //             ),
+    //             _buildMetadataRow(
+    //               'Aspect Ratio',
+    //               _imageMetadata['aspectRatio'] ?? '',
+    //             ),
+    //             _buildMetadataRow(
+    //               'File Size',
+    //               _imageMetadata['fileSize'] ?? '',
+    //             ),
+    //             const SizedBox(height: 8),
+    //             _buildMetadataRow(
+    //               'Path',
+    //               _imageMetadata['path'] ?? '',
+    //               isPath: true,
+    //             ),
+    //             if (_imageMetadata['error'] != null)
+    //               _buildMetadataRow(
+    //                 'Error',
+    //                 _imageMetadata['error'],
+    //                 isError: true,
+    //               ),
+    //           ] else
+    //             const Text(
+    //               'Loading metadata...',
+    //               style: TextStyle(color: Colors.grey, fontSize: 14),
+    //             ),
+    //         ],
+    //       ),
+    //     ),
+    //   ),
+    // );
+  }
+
+  Widget _buildMetadataRow(
+    String label,
+    String value, {
+    bool isPath = false,
+    bool isError = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: TextStyle(
+                color: isError ? Colors.red : Colors.grey[300],
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: isError ? Colors.red : Colors.white,
+                fontSize: 14,
+                fontFamily: isPath ? 'monospace' : null,
+              ),
+              softWrap: true,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
