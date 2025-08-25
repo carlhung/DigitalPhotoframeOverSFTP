@@ -7,6 +7,7 @@ import 'package:keep_screen_on/keep_screen_on.dart';
 import 'package:photoframe/connection_view_controller.dart';
 import 'dart:io' show Platform;
 import 'package:exif/exif.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:photoframe/Cache.dart';
 import 'package:photoframe/helpers.dart';
 
@@ -87,6 +88,7 @@ class _PhotoframeControllerState extends State<PhotoframeController>
 
       // Extract location data
       String? location;
+      String? coordinates;
       String? dateTaken;
       String? camera;
       String? cameraModel;
@@ -103,7 +105,30 @@ class _PhotoframeControllerState extends State<PhotoframeController>
           final lat = _gpsValuesToFloat(gpsLat.values, gpsLatRef?.toString());
           final lon = _gpsValuesToFloat(gpsLon.values, gpsLonRef?.toString());
           if (lat != null && lon != null) {
-            location = '${lat.toStringAsFixed(6)}, ${lon.toStringAsFixed(6)}';
+            coordinates = '${lat.toStringAsFixed(6)}, ${lon.toStringAsFixed(6)}';
+            
+            // Try to get address from coordinates
+            try {
+              List<Placemark> placemarks = await placemarkFromCoordinates(lat, lon);
+              if (placemarks.isNotEmpty) {
+                Placemark place = placemarks[0];
+                List<String> addressParts = [];
+                if (place.street?.isNotEmpty == true) addressParts.add(place.street!);
+                if (place.locality?.isNotEmpty == true) addressParts.add(place.locality!);
+                if (place.administrativeArea?.isNotEmpty == true) addressParts.add(place.administrativeArea!);
+                if (place.country?.isNotEmpty == true) addressParts.add(place.country!);
+                
+                if (addressParts.isNotEmpty) {
+                  location = addressParts.join(', ');
+                } else {
+                  location = 'Address not available';
+                }
+              } else {
+                location = 'Address not found';
+              }
+            } catch (e) {
+              location = 'Address lookup failed';
+            }
           }
         }
 
@@ -129,6 +154,7 @@ class _PhotoframeControllerState extends State<PhotoframeController>
         'format': fileExtension,
         'resolution': '${image.width} × ${image.height}',
         'location': location ?? 'No location data',
+        'coordinates': coordinates ?? 'No coordinates',
         'dateTaken': dateTaken ?? 'Unknown',
         'camera': camera ?? 'Unknown',
         'cameraModel': cameraModel ?? 'Unknown',
@@ -374,6 +400,10 @@ class _PhotoframeControllerState extends State<PhotoframeController>
                   _buildMetadataRow(
                     'Location',
                     _imageMetadata['location'] ?? '',
+                  ),
+                  _buildMetadataRow(
+                    'Coordinates',
+                    _imageMetadata['coordinates'] ?? '',
                   ),
                   const SizedBox(height: 8),
                   _buildMetadataRow(
