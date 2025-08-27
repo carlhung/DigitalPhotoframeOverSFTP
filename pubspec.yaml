@@ -34,7 +34,6 @@ dependencies:
   path: ^1.8.3
   keep_screen_on: ^4.0.0
   flutter_secure_storage: ^9.2.4
-  shared_preferences: ^2.5.3
   exif: ^3.3.0
   geocoding: ^4.0.0
 

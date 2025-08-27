@@ -6,7 +6,6 @@ import 'package:photoframe/helpers.dart';
 import 'package:photoframe/photoframe_view_controller.dart';
 import 'package:photoframe/ssh_connection_form.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:typed_data';
 
 class ConnectionFormWidget extends StatefulWidget {
@@ -34,22 +33,35 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
   }
 
   Future<void> _loadSavedConnections() async {
-    final prefs = await SharedPreferences.getInstance();
-    final connectionsJson = prefs.getStringList('saved_connections') ?? [];
-    
-    setState(() {
-      _savedConnections = connectionsJson
-          .map((json) => SavedConnection.fromJson(jsonDecode(json)))
-          .toList();
-    });
+    final connectionsString = await _secureStorage.read(
+      key: 'saved_connections',
+    );
+
+    if (connectionsString != null) {
+      final connectionsJson = List<String>.from(
+        jsonDecode(connectionsString) ?? [],
+      );
+
+      setState(() {
+        _savedConnections = connectionsJson
+            .map((json) => SavedConnection.fromJson(jsonDecode(json)))
+            .toList();
+      });
+    } else {
+      setState(() {
+        _savedConnections = [];
+      });
+    }
   }
 
   Future<void> _saveConnections() async {
-    final prefs = await SharedPreferences.getInstance();
     final connectionsJson = _savedConnections
         .map((connection) => jsonEncode(connection.toJson()))
         .toList();
-    await prefs.setStringList('saved_connections', connectionsJson);
+    await _secureStorage.write(
+      key: 'saved_connections',
+      value: jsonEncode(connectionsJson),
+    );
   }
 
   Future<void> _addConnection(SavedConnection connection) async {
@@ -66,7 +78,9 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
     await _saveConnections();
   }
 
-  Future<void> _connectToSavedConnection(SavedConnection savedConnection) async {
+  Future<void> _connectToSavedConnection(
+    SavedConnection savedConnection,
+  ) async {
     try {
       final connection = SSHconnection(
         savedConnection.host,
@@ -75,12 +89,22 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
         savedConnection.password,
       );
       await connection.init();
-      
+
       final acceptedFormats = [
-        "jpg", "png", "jpeg", "gif", "webp", "bmp", "wbmp", "heic", "heif"
+        "jpg",
+        "png",
+        "jpeg",
+        "gif",
+        "webp",
+        "bmp",
+        "wbmp",
+        "heic",
+        "heif",
       ].map((str) => '.${str.toLowerCase()}').toList();
-      
-      final returnedPaths = await connection.getPathsInFolder(savedConnection.rootPath);
+
+      final returnedPaths = await connection.getPathsInFolder(
+        savedConnection.rootPath,
+      );
       final allPaths = returnedPaths.where((path) {
         final fileExtension = p.extension(path).toLowerCase();
         return acceptedFormats.contains(fileExtension);
@@ -90,7 +114,7 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
         throw Exception("No valid image files found in the specified path.");
       }
       allPaths.shuffle();
-      
+
       if (mounted) {
         Navigator.push(
           context,
@@ -138,26 +162,16 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.cloud_off,
-            size: 64,
-            color: Colors.grey,
-          ),
+          const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
           const SizedBox(height: 16),
           const Text(
             'No connections yet',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey,
-            ),
+            style: TextStyle(fontSize: 18, color: Colors.grey),
           ),
           const SizedBox(height: 8),
           const Text(
             'Tap the + button to add your first connection',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey,
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey),
           ),
         ],
       ),
@@ -175,7 +189,9 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
           child: ListTile(
             leading: const Icon(Icons.computer, size: 32),
             title: Text(connection.name),
-            subtitle: Text('${connection.username}@${connection.host}:${connection.port}'),
+            subtitle: Text(
+              '${connection.username}@${connection.host}:${connection.port}',
+            ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
