@@ -117,14 +117,18 @@ class _PhotoframeControllerState extends State<PhotoframeController>
               if (placemarks.isNotEmpty) {
                 Placemark place = placemarks[0];
                 List<String> addressParts = [];
-                if (place.street?.isNotEmpty == true)
+                if (place.street?.isNotEmpty == true) {
                   addressParts.add(place.street!);
-                if (place.locality?.isNotEmpty == true)
+                }
+                if (place.locality?.isNotEmpty == true) {
                   addressParts.add(place.locality!);
-                if (place.administrativeArea?.isNotEmpty == true)
+                }
+                if (place.administrativeArea?.isNotEmpty == true) {
                   addressParts.add(place.administrativeArea!);
-                if (place.country?.isNotEmpty == true)
+                }
+                if (place.country?.isNotEmpty == true) {
                   addressParts.add(place.country!);
+                }
 
                 if (addressParts.isNotEmpty) {
                   location = addressParts.join(', ');
@@ -341,12 +345,10 @@ class _PhotoframeControllerState extends State<PhotoframeController>
     return Stack(
       alignment: AlignmentDirectional.center,
       children: [
-        Transform(
-          transform: Matrix4.identity()
-            ..scale(_scale)
-            ..translate(_offset.dx, _offset.dy),
+        Transform.scale(
+          scale: _scale,
           alignment: Alignment.center,
-          child: image!,
+          child: Transform.translate(offset: _offset, child: image!),
         ),
         if (_showImageDetails) _buildImageDetailsOverlay(),
       ],
