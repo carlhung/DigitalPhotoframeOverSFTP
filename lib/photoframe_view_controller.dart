@@ -105,19 +105,27 @@ class _PhotoframeControllerState extends State<PhotoframeController>
           final lat = _gpsValuesToFloat(gpsLat.values, gpsLatRef?.toString());
           final lon = _gpsValuesToFloat(gpsLon.values, gpsLonRef?.toString());
           if (lat != null && lon != null) {
-            coordinates = '${lat.toStringAsFixed(6)}, ${lon.toStringAsFixed(6)}';
-            
+            coordinates =
+                '${lat.toStringAsFixed(6)}, ${lon.toStringAsFixed(6)}';
+
             // Try to get address from coordinates
             try {
-              List<Placemark> placemarks = await placemarkFromCoordinates(lat, lon);
+              List<Placemark> placemarks = await placemarkFromCoordinates(
+                lat,
+                lon,
+              );
               if (placemarks.isNotEmpty) {
                 Placemark place = placemarks[0];
                 List<String> addressParts = [];
-                if (place.street?.isNotEmpty == true) addressParts.add(place.street!);
-                if (place.locality?.isNotEmpty == true) addressParts.add(place.locality!);
-                if (place.administrativeArea?.isNotEmpty == true) addressParts.add(place.administrativeArea!);
-                if (place.country?.isNotEmpty == true) addressParts.add(place.country!);
-                
+                if (place.street?.isNotEmpty == true)
+                  addressParts.add(place.street!);
+                if (place.locality?.isNotEmpty == true)
+                  addressParts.add(place.locality!);
+                if (place.administrativeArea?.isNotEmpty == true)
+                  addressParts.add(place.administrativeArea!);
+                if (place.country?.isNotEmpty == true)
+                  addressParts.add(place.country!);
+
                 if (addressParts.isNotEmpty) {
                   location = addressParts.join(', ');
                 } else {
@@ -346,102 +354,104 @@ class _PhotoframeControllerState extends State<PhotoframeController>
   }
 
   Widget _buildImageDetailsOverlay() {
-    return Stack(
-      children: [
-        Center(
-          child: Container(
-            margin: const EdgeInsets.all(20),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.8),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Image Details',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (_imageMetadata.isNotEmpty) ...[
-                  _buildMetadataRow(
-                    'Filename',
-                    _imageMetadata['filename'] ?? '',
-                  ),
-                  _buildMetadataRow('Format', _imageMetadata['format'] ?? ''),
-                  _buildMetadataRow(
-                    'Resolution',
-                    _imageMetadata['resolution'] ?? '',
-                  ),
-                  _buildMetadataRow(
-                    'Aspect Ratio',
-                    _imageMetadata['aspectRatio'] ?? '',
-                  ),
-                  _buildMetadataRow(
-                    'File Size',
-                    _imageMetadata['fileSize'] ?? '',
-                  ),
-                  const SizedBox(height: 8),
-                  _buildMetadataRow(
-                    'Date Taken',
-                    _imageMetadata['dateTaken'] ?? '',
-                  ),
-                  _buildMetadataRow('Camera', _imageMetadata['camera'] ?? ''),
-                  _buildMetadataRow(
-                    'Model',
-                    _imageMetadata['cameraModel'] ?? '',
-                  ),
-                  _buildMetadataRow(
-                    'Location',
-                    _imageMetadata['location'] ?? '',
-                  ),
-                  _buildMetadataRow(
-                    'Coordinates',
-                    _imageMetadata['coordinates'] ?? '',
-                  ),
-                  const SizedBox(height: 8),
-                  _buildMetadataRow(
-                    'Path',
-                    _imageMetadata['path'] ?? '',
-                    isPath: true,
-                  ),
-                  if (_imageMetadata['error'] != null)
-                    _buildMetadataRow(
-                      'Error',
-                      _imageMetadata['error'],
-                      isError: true,
-                    ),
-                ] else
+    return SingleChildScrollView(
+      child: Stack(
+        children: [
+          Center(
+            child: Container(
+              margin: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   const Text(
-                    'Loading metadata...',
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                    'Image Details',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-              ],
+                  const SizedBox(height: 16),
+                  if (_imageMetadata.isNotEmpty) ...[
+                    _buildMetadataRow(
+                      'Filename',
+                      _imageMetadata['filename'] ?? '',
+                    ),
+                    _buildMetadataRow('Format', _imageMetadata['format'] ?? ''),
+                    _buildMetadataRow(
+                      'Resolution',
+                      _imageMetadata['resolution'] ?? '',
+                    ),
+                    _buildMetadataRow(
+                      'Aspect Ratio',
+                      _imageMetadata['aspectRatio'] ?? '',
+                    ),
+                    _buildMetadataRow(
+                      'File Size',
+                      _imageMetadata['fileSize'] ?? '',
+                    ),
+                    const SizedBox(height: 8),
+                    _buildMetadataRow(
+                      'Date Taken',
+                      _imageMetadata['dateTaken'] ?? '',
+                    ),
+                    _buildMetadataRow('Camera', _imageMetadata['camera'] ?? ''),
+                    _buildMetadataRow(
+                      'Model',
+                      _imageMetadata['cameraModel'] ?? '',
+                    ),
+                    _buildMetadataRow(
+                      'Location',
+                      _imageMetadata['location'] ?? '',
+                    ),
+                    _buildMetadataRow(
+                      'Coordinates',
+                      _imageMetadata['coordinates'] ?? '',
+                    ),
+                    const SizedBox(height: 8),
+                    _buildMetadataRow(
+                      'Path',
+                      _imageMetadata['path'] ?? '',
+                      isPath: true,
+                    ),
+                    if (_imageMetadata['error'] != null)
+                      _buildMetadataRow(
+                        'Error',
+                        _imageMetadata['error'],
+                        isError: true,
+                      ),
+                  ] else
+                    const Text(
+                      'Loading metadata...',
+                      style: TextStyle(color: Colors.grey, fontSize: 14),
+                    ),
+                ],
+              ),
             ),
           ),
-        ),
-        // Back button in top left corner
-        Positioned(
-          top: 40,
-          left: 20,
-          child: IconButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 30),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.black.withValues(alpha: 0.8),
-              shape: const CircleBorder(),
+          // Back button in top left corner
+          Positioned(
+            top: 40,
+            left: 20,
+            child: IconButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              icon: const Icon(Icons.arrow_back, color: Colors.white, size: 30),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black.withValues(alpha: 0.8),
+                shape: const CircleBorder(),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
