@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "27319422735",
+    "project_id": "photoframe-f5ca0",
+    "storage_bucket": "photoframe-f5ca0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:27319422735:android:68d6bc0c39858e4371787a",
+        "android_client_info": {
+          "package_name": "com.example.photoframe"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRgWLayP3tbsMx7HL8_tjLgzDdLQC5F4U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
