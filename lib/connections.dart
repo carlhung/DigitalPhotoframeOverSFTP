@@ -133,6 +133,7 @@ class SSHconnection extends ConnectionModule {
 class GDconnection extends ConnectionModule {
   final scopes = [DriveApi.driveFileScope];
   DriveApi? _driveApi;
+  List<File> _savedFiles = [];
 
   void _reset() {
     _driveApi = null;
@@ -199,15 +200,20 @@ class GDconnection extends ConnectionModule {
       supportsAllDrives: true,
     );
     final List<File> files = found?.items ?? [];
-    return files
-        .where((file) {
-          final extension = file.fileExtension?.toLowerCase() ?? '';
-          return acceptedFormats.contains('.$extension') &&
-              file.id != null &&
-              file.id!.isNotEmpty;
-        })
-        .map((file) => file.id!)
-        .toList();
+    final savedFiles = files.where((file) {
+      final extension = file.fileExtension?.toLowerCase() ?? '';
+      return acceptedFormats.contains('.$extension') &&
+          file.id != null &&
+          file.id!.isNotEmpty;
+    }).toList();
+    _savedFiles = savedFiles;
+    final List<String> fileIds = savedFiles.map((file) => file.id!).toList();
+    return fileIds;
+  }
+
+  String? getPath(String id) {
+    final file = _savedFiles.firstWhere((file) => file.id == id);
+    return file.downloadUrl;
   }
 
   // path is the file ID
