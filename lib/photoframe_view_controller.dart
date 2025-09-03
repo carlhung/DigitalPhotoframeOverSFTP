@@ -220,19 +220,15 @@ class _PhotoframeControllerState extends State<PhotoframeController>
       final content = await widget.connection.open(path);
       _cache.add((path, content));
 
-      final gdConnection = widget.connection as GDconnection?;
       final String? actualPath;
-      if (gdConnection != null) {
+      if (widget.connection is GDconnection) {
+        final gdConnection = widget.connection as GDconnection;
         actualPath = gdConnection.getPath(path);
       } else {
         actualPath = null;
       }
 
-      if (actualPath != null) {
-        await _extractImageMetadata(content, actualPath);
-      } else {
-        await _extractImageMetadata(content, path);
-      }
+      _extractImageMetadata(content, actualPath ?? path);
 
       return Image.memory(content);
     } catch (e) {
@@ -520,9 +516,9 @@ class _PhotoframeControllerState extends State<PhotoframeController>
       final unwrappedItem = item;
       _cleanTimer();
 
-      final gdConnection = widget.connection as GDconnection?;
       final String? actualPath;
-      if (gdConnection != null) {
+      if (widget.connection is GDconnection) {
+        final gdConnection = widget.connection as GDconnection;
         actualPath = gdConnection.getPath(unwrappedItem.$1);
       } else {
         actualPath = null;

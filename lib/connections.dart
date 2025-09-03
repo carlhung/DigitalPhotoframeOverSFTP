@@ -105,7 +105,7 @@ class SSHconnection extends ConnectionModule {
   Future<List<String>> getPathsInFolder(String path) async {
     final loadTargetPathCommand = 'cd $path && find "\$(pwd)" -type f';
     final result = await client.run(loadTargetPathCommand, stderr: false);
-    final returnedPaths = utf8.decode(result).split("\\n").where((path) {
+    final returnedPaths = utf8.decode(result).split("\n").where((path) {
       final trimmedPath = path.trim();
       if (trimmedPath.isEmpty) return false;
       return true;
