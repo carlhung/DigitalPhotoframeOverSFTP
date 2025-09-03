@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:photoframe/photoframe_view_controller.dart';
+import 'package:photoframe/Cache.dart';
 
 void main() {
   group('test cache', () {

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:photoframe/connection_view_controller.dart';
+import 'package:photoframe/connections.dart';
 
 class SSHConnectionForm extends StatefulWidget {
   final Function(SavedConnection) onConnectionSaved;

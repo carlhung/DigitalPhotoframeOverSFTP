@@ -4,7 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:keep_screen_on/keep_screen_on.dart';
-import 'package:photoframe/connection_view_controller.dart';
+import 'package:photoframe/connections.dart';
 import 'dart:io' show Platform;
 import 'package:exif/exif.dart';
 import 'package:geocoding/geocoding.dart';
