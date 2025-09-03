@@ -28,8 +28,8 @@ class SavedConnection {
   final String username;
   final String password;
   final String rootPath;
-  final int duration;
-  final int imageCacheSize;
+  final int? duration; // Optional for backward compatibility
+  final int? imageCacheSize; // Optional for backward compatibility
 
   SavedConnection({
     required this.name,
@@ -39,12 +39,12 @@ class SavedConnection {
     required this.username,
     required this.password,
     required this.rootPath,
-    required this.duration,
-    required this.imageCacheSize,
+    this.duration,
+    this.imageCacheSize,
   });
 
   Map<String, dynamic> toJson() {
-    return {
+    Map<String, dynamic> json = {
       'name': name,
       'type': type,
       'host': host,
@@ -52,9 +52,10 @@ class SavedConnection {
       'username': username,
       'password': password,
       'rootPath': rootPath,
-      'duration': duration,
-      'imageCacheSize': imageCacheSize,
     };
+    if (duration != null) json['duration'] = duration;
+    if (imageCacheSize != null) json['imageCacheSize'] = imageCacheSize;
+    return json;
   }
 
   factory SavedConnection.fromJson(Map<String, dynamic> json) {
@@ -140,6 +141,7 @@ class GDconnection extends ConnectionModule {
   @override
   Future<void> init() async {
     final signIn = GoogleSignIn.instance;
+    // may need to remove.
     await signIn.signOut();
     await signIn.initialize(
       clientId:
@@ -151,11 +153,14 @@ class GDconnection extends ConnectionModule {
     // First try lightweight authentication (cached sign-in)
     GoogleSignInAccount? user = await signIn.attemptLightweightAuthentication();
 
-    if (user != null) {
-      await _handleUser(user);
-    } else {
-      throw Exception("User cancelled Google Sign-In or failed to login");
-    }
+    // If lightweight authentication fails, try interactive sign-in
+    user ??= await signIn.authenticate();
+
+    // if (user != null) {
+    await _handleUser(user);
+    // } else {
+    //   throw Exception("User cancelled Google Sign-In or failed to login");
+    // }
   }
 
   Future<void> _handleUser(GoogleSignInAccount user) async {

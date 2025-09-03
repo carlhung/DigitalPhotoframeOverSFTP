@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:photoframe/connection_view_controller.dart';
+import 'package:photoframe/app_settings.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppSettings.initialize();
   runApp(MyApp());
 }
 

@@ -18,8 +18,6 @@ class _SSHConnectionFormState extends State<SSHConnectionForm> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _rootPathController = TextEditingController(text: '~/');
-  final _durationController = TextEditingController(text: '5');
-  final _imageCacheSizeController = TextEditingController(text: '10');
 
   bool _obscurePassword = true;
 
@@ -31,8 +29,6 @@ class _SSHConnectionFormState extends State<SSHConnectionForm> {
     _usernameController.dispose();
     _passwordController.dispose();
     _rootPathController.dispose();
-    _durationController.dispose();
-    _imageCacheSizeController.dispose();
     super.dispose();
   }
 
@@ -46,8 +42,6 @@ class _SSHConnectionFormState extends State<SSHConnectionForm> {
         username: _usernameController.text,
         password: _passwordController.text,
         rootPath: _rootPathController.text,
-        duration: int.parse(_durationController.text),
-        imageCacheSize: int.parse(_imageCacheSizeController.text),
       );
       widget.onConnectionSaved(connection);
     }
@@ -196,52 +190,6 @@ class _SSHConnectionFormState extends State<SSHConnectionForm> {
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter a path';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Duration Field
-                TextFormField(
-                  controller: _durationController,
-                  decoration: const InputDecoration(
-                    labelText: 'Duration (seconds)',
-                    hintText: '5',
-                    prefixIcon: Icon(Icons.timer),
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a duration';
-                    }
-                    final num = int.tryParse(value);
-                    if (num == null || num < 1) {
-                      return 'Please enter a valid duration';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Image Cache Size
-                TextFormField(
-                  controller: _imageCacheSizeController,
-                  decoration: const InputDecoration(
-                    labelText: 'Image Cache Size',
-                    hintText: '10',
-                    prefixIcon: Icon(Icons.storage),
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a cache size';
-                    }
-                    final num = int.tryParse(value);
-                    if (num == null || num < 1) {
-                      return 'Please enter a valid cache size';
                     }
                     return null;
                   },

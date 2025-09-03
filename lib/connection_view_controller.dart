@@ -5,6 +5,8 @@ import 'package:photoframe/photoframe_view_controller.dart';
 import 'package:photoframe/ssh_connection_form.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:photoframe/connections.dart';
+import 'package:photoframe/app_settings.dart';
+import 'package:photoframe/settings_page.dart';
 
 class ConnectionFormWidget extends StatefulWidget {
   final GlobalKey<NavigatorState> navigatorKey;
@@ -105,8 +107,8 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
               navigatorKey: widget.navigatorKey,
               connection: connection,
               imagePaths: allPaths,
-              duration: Duration(seconds: savedConnection.duration),
-              imageCacheSize: savedConnection.imageCacheSize,
+              duration: Duration(seconds: AppSettings.duration),
+              imageCacheSize: AppSettings.imageCacheSize,
             ),
           ),
         );
@@ -127,6 +129,10 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => _openSettings(),
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () => _showAddConnectionDialog(),
@@ -191,6 +197,13 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
     );
   }
 
+  void _openSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SettingsPage()),
+    );
+  }
+
   void _showAddConnectionDialog() {
     showDialog(
       context: context,
@@ -248,7 +261,6 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
         throw Exception("No valid image files found in Google Drive.");
       }
       allPaths.shuffle();
-
       if (mounted) {
         Navigator.push(
           context,
@@ -257,8 +269,8 @@ class _ConnectionFormWidgetState extends State<ConnectionFormWidget> {
               navigatorKey: widget.navigatorKey,
               connection: connection,
               imagePaths: allPaths,
-              duration: const Duration(seconds: 10), // Default duration
-              imageCacheSize: 10, // Default cache size
+              duration: Duration(seconds: AppSettings.duration),
+              imageCacheSize: AppSettings.imageCacheSize,
             ),
           ),
         );
