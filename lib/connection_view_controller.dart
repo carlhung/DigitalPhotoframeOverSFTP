@@ -1,12 +1,11 @@
 import 'dart:convert';
 import 'package:path/path.dart' as p;
 import 'package:flutter/material.dart';
-import 'package:dartssh2/dartssh2.dart';
+import 'package:photoframe/connections.dart';
 import 'package:photoframe/helpers.dart';
 import 'package:photoframe/photoframe_view_controller.dart';
 import 'package:photoframe/ssh_connection_form.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'dart:typed_data';
 
 class ConnectionFormWidget extends StatefulWidget {
   final GlobalKey<NavigatorState> navigatorKey;
@@ -296,58 +295,5 @@ class SavedConnection {
       duration: json['duration'],
       imageCacheSize: json['imageCacheSize'],
     );
-  }
-}
-
-abstract class ConnectionModule {
-  Future<void> init();
-  Future<List<String>> getPathsInFolder(String path);
-  void disconnect();
-  Future<Uint8List> open(String path);
-}
-
-class SSHconnection extends ConnectionModule {
-  final String host;
-  final String password;
-  final int port;
-  final String username;
-  late SftpClient sftp;
-  late SSHSocket socket;
-  late SSHClient client;
-  SSHconnection(this.host, this.port, this.username, this.password);
-
-  @override
-  Future<void> init() async {
-    socket = await SSHSocket.connect(host, port);
-    client = SSHClient(
-      socket,
-      username: username,
-      onPasswordRequest: () => password,
-    );
-    sftp = await client.sftp();
-  }
-
-  @override
-  Future<List<String>> getPathsInFolder(String path) async {
-    final loadTargetPathCommand = 'cd $path && find "\$(pwd)" -type f';
-    final result = await client.run(loadTargetPathCommand, stderr: false);
-    final allPaths = utf8.decode(result).split("\n").where((path) {
-      final trimmedPath = path.trim();
-      if (trimmedPath.isEmpty) return false;
-      return true;
-    }).toList();
-    return allPaths;
-  }
-
-  @override
-  void disconnect() {
-    sftp.close();
-    client.close();
-  }
-
-  @override
-  Future<Uint8List> open(String path) async {
-    final file = await sftp.open(path);
-    return await file.readBytes();
   }
 }
