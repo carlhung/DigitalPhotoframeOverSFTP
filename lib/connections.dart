@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dartssh2/dartssh2.dart';
 import 'package:googleapis/drive/v2.dart' as gApi;
 import 'dart:typed_data';
@@ -144,9 +146,20 @@ class GDconnection extends ConnectionModule {
     final signIn = GoogleSignIn.instance;
     // may need to remove.
     await signIn.signOut();
+
+    final String clientID;
+    if (Platform.isIOS) {
+      clientID =
+          "639070093214-to40b99oh1ddumg3i8f1s3eo1n5lpp4s.apps.googleusercontent.com";
+    } else if (Platform.isAndroid) {
+      clientID =
+          "639070093214-ldpi0q4eb0pvkskl8s5r7av68lsh26e6.apps.googleusercontent.com";
+    } else {
+      throw Exception("Unsupported platform");
+    }
+
     await signIn.initialize(
-      clientId:
-          "639070093214-ldpi0q4eb0pvkskl8s5r7av68lsh26e6.apps.googleusercontent.com",
+      clientId: clientID,
       serverClientId:
           "639070093214-m8pc58cn8vqr9qqjbg67j9isvi7i7ktd.apps.googleusercontent.com",
     );
